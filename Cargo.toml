@@ -2,6 +2,8 @@
 name = "tantivy-eml-dump"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+
 
 [dependencies]
 tantivy = { version = "0.25.0", features = ["quickwit", "zstd-compression"] }
