@@ -8,3 +8,10 @@ tantivy = { version = "0.25.0", features = ["quickwit", "zstd-compression"] }
 chrono = "0.4.43"
 clap = { version = "4.5.54", features = ["derive", "env"] }
 tokio = { version = "1.52.1", features = ["full"] }
+
+
+[profile.release]
+strip = true
+lto = true
+opt-level = 3
+codegen-units = 1
