@@ -84,7 +84,6 @@ jobs:
         run: |
           mkdir -p release
           BINARY="target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}"
-          cp README.md LICENSE release/
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} release/
           tar -czvf "${{ env.BINARY_NAME }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" -C release .
           mv "${{ env.BINARY_NAME }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" release/
