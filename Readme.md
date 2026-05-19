@@ -1,84 +1,109 @@
+# tantivy-eml-dump
 
-# eml-dumper
+**tantivy-eml-dump** extracts emails from legacy Bichon data directories (v0.3.7 and earlier) into **mbox** files by reading the EML data directly from the Tantivy index.
 
-**eml-dumper** is a recovery tool for extracting emails from legacy Bichon data directories (v0.3.7 and earlier) when metadata is corrupted but the **EML index remains intact**.
+It has two operating modes:
 
-It is designed for cases where the `envelope` index or other system metadata is damaged.
-
-> [!IMPORTANT]
-> The exported .mbox files do not contain UID or mailbox name information, as this data is bypassed during raw EML index extraction.
-
-
----
-
-## What it does
-
-* Reads raw email data directly from the Tantivy index
-* Bypasses broken metadata
-* Exports emails into **mbox** files
-* Groups output by `account_id`
+- **If you provide `meta.db` and `mailbox.db`** (via `--root-dir`), it reads account and mailbox metadata, lets you pick an account interactively, and exports a single `{email}.mbox` per account.
+- **If those databases are unavailable** (no `--root-dir`, or they can't be opened), it falls back to numeric IDs and exports `account_{id}.mbox` per account found in the index.
 
 ---
 
 ## Usage
 
-### Option 1: Use prebuilt binaries (recommended)
+### Option 1: Prebuilt binaries
 
 Download the appropriate binary for your platform from the **Releases** page, then run:
 
-```bash id="m4q2sl"
+```bash
 ./tantivy-eml-dump \
-  --data-dir /absolute/path/to/BICHON_DATA_DIR \
-  --output-dir /absolute/path/to/output
+  --data-dir /path/to/index \
+  --output-dir /path/to/output
 ```
-
----
 
 ### Option 2: Build from source
 
-```bash id="9z0j3g"
+```bash
 cargo build --release
 
 ./target/release/tantivy-eml-dump \
-  --data-dir /absolute/path/to/BICHON_DATA_DIR \
-  --output-dir /absolute/path/to/output
+  --data-dir /path/to/index \
+  --output-dir /path/to/output
 ```
 
 ---
 
-## Data Directory
+## Arguments
 
-* You can pass:
-
-  * `/absolute/path/to/BICHON_DATA_DIR`
-* Or, if not explicitly managed:
-
-  * `BICHON_ROOT_DIR/eml`
+| Argument | Required | Description |
+|---|---|---|
+| `--data-dir` | Yes | Path to the Tantivy index directory (Bichon's `BICHON_DATA_DIR`) |
+| `--output-dir` | Yes | Path where mbox files will be written |
+| `--root-dir` | No | Path to the Bichon root directory (contains `meta.db` and `mailbox.db`) |
 
 ---
 
-## Output
+## Modes
 
-* One `.mbox` file per account:
+### With `meta.db` and `mailbox.db` (`--root-dir` provided and databases readable)
+
+- Reads account list from `meta.db` and mailbox info from `mailbox.db`
+- Lets you interactively select which account to export
+- Output: one `.mbox` file per account — `{email}.mbox`
+- Each email in the mbox carries an `X-Bichon-Metadata` header recording its `account_email` and `mailbox_name`
+
+### Without native databases (`--root-dir` omitted or databases unreadable)
+
+- Scans the Tantivy index to discover all account IDs
+- Exports every account found, grouped by numeric `account_id`
+- Output: `account_{account_id}.mbox`
+
+> [!IMPORTANT]
+> In this mode, account emails and mailbox names are unavailable — output files use numeric identifiers, and `X-Bichon-Metadata` headers are not written.
+
+---
+
+## `X-Bichon-Metadata` header
+
+When `--root-dir` is provided, each exported email includes a custom header:
 
 ```
-account_<account_id>.mbox
+X-Bichon-Metadata: <base64-encoded JSON>
 ```
+
+The decoded JSON payload:
+
+```json
+{
+  "account_email": "user@example.com",
+  "mailbox_name": "INBOX"
+}
+```
+
+This allows downstream tools (such as `bichon-cli`) to recover the original account-to-mailbox association even though the mbox format itself does not carry that information.
+
+### Importing into Bichon 1.x
+
+When importing the generated mbox into a Bichon 1.x server via `bichon-cli`, select the import mode:
+
+> **Use X-Bichon-Metadata header (Automatic)**
+
+This tells `bichon-cli` to read the `X-Bichon-Metadata` header from each email and automatically assign the correct account and mailbox — no manual mapping required.
 
 ---
 
 ## When to use
 
-* `envelope` index is corrupted
-* Bichon metadata is broken
-* **EML index is still readable**
+Both modes are read-only and do not modify the source index. This tool is particularly useful when:
+
+- `envelope` index is corrupted but the EML index is intact
+- You need to export emails from a Bichon data directory without running the full Bichon service
+- You are migrating from Bichon v0.3.7 to v1.x
 
 ---
 
 ## Notes
 
-* Read-only
-* May append duplicates if re-run
-* Only supports Bichon v0.3.7 and earlier
-* Bichon manages its own data storage and does not rely on external databases, Do not use network file systems (e.g. NFS, SMB) as the data directory, as network instability can easily lead to index or data corruption
----
+- Re-running appends to existing mbox files, which may create duplicates
+- Only supports Bichon v0.3.7 and earlier
+- Do not use network file systems (NFS, SMB) as the data directory — network instability can lead to index or data corruption
