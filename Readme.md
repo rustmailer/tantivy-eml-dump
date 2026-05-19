@@ -5,6 +5,10 @@
 
 It is designed for cases where the `envelope` index or other system metadata is damaged.
 
+> [!IMPORTANT]
+> The exported .mbox files do not contain UID or mailbox name information, as this data is bypassed during raw EML index extraction.
+
+
 ---
 
 ## What it does
